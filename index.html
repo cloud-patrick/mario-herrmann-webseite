@@ -730,7 +730,22 @@
     ========================================================= */
     #ueber-uns {
       padding: var(--pad) 0;
+      position: relative;
       background: var(--bg-alt);
+    }
+    #ueber-uns::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: url('Verlegung.png') center center / cover no-repeat;
+      filter: blur(3px);
+      transform: scale(1.02);
+      opacity: 0.18;
+      z-index: 0;
+    }
+    #ueber-uns > * {
+      position: relative;
+      z-index: 1;
     }
     .about-grid {
       display: grid;
@@ -1517,9 +1532,6 @@
         <div class="about-media reveal" style="--d:.1s">
           <div class="about-mh-logo">
             <img src="MH Logo_.png" alt="Mario Herrmann – Parkett &amp; Bodenbeläge Logo">
-          </div>
-          <div class="about-verlegung">
-            <img src="Verlegung.png" alt="Parkettverlegung Mario Herrmann" loading="lazy">
           </div>
           <div class="partner-strip">
             <p class="partner-strip-label">Unsere Partner</p>
