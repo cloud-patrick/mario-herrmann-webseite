@@ -738,11 +738,9 @@
       position: absolute;
       inset: -20px;
       background: url('Verlegung.png') center center / cover no-repeat;
-      filter: blur(2px);
-      opacity: 0.22;
+      filter: blur(3px);
+      opacity: 0.25;
       z-index: 0;
-      clip-path: inset(100% 0 0 0);
-      will-change: clip-path;
     }
     #ueber-uns > * {
       position: relative;
@@ -1968,29 +1966,6 @@
 
     revealEls.forEach(function(el) { io.observe(el); });
   });
-
-  /* ============================================================
-     VERLEGUNG BACKGROUND — scroll reveal via clip-path
-  ============================================================ */
-  (function() {
-    var bgEl = document.getElementById('verlegung-bg');
-    var section = document.getElementById('ueber-uns');
-    if (!bgEl || !section) return;
-
-    function updateVerlegung() {
-      var rect = section.getBoundingClientRect();
-      var wh = window.innerHeight;
-      var sh = section.offsetHeight;
-      // progress: 0 when section top hits bottom of viewport, 1 when section bottom leaves top
-      var progress = 1 - (rect.bottom / (wh + sh));
-      progress = Math.max(0, Math.min(1, progress));
-      var revealed = Math.round(progress * 100);
-      bgEl.style.clipPath = 'inset(' + (100 - revealed) + '% 0 0 0)';
-    }
-
-    window.addEventListener('scroll', updateVerlegung, { passive: true });
-    updateVerlegung();
-  })();
 
   /* ============================================================
      NAV — scroll state + hamburger + active section
