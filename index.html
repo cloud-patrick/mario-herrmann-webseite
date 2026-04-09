@@ -734,10 +734,15 @@
     }
     #verlegung-bg {
       position: absolute;
-      inset: 0;
-      background: url('Verlegung.png') center center / cover no-repeat fixed;
-      opacity: 1;
+      inset: -30%;
       z-index: 0;
+      will-change: transform;
+    }
+    #verlegung-bg img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      display: block;
     }
     #ueber-uns > * {
       position: relative;
@@ -1473,7 +1478,7 @@
        ÜBER UNS
   ================================================================ -->
   <section id="ueber-uns">
-    <div id="verlegung-bg" aria-hidden="true"></div>
+    <div id="verlegung-bg" aria-hidden="true"><img src="Verlegung.png" alt=""></div>
     <div class="container">
       <div class="about-grid">
 
@@ -1965,6 +1970,23 @@
 
     revealEls.forEach(function(el) { io.observe(el); });
   });
+
+  /* ============================================================
+     VERLEGUNG PARALLAX
+  ============================================================ */
+  (function() {
+    var bgEl = document.getElementById('verlegung-bg');
+    var section = document.getElementById('ueber-uns');
+    if (!bgEl || !section) return;
+    function onScroll() {
+      var rect = section.getBoundingClientRect();
+      var progress = -rect.top / (window.innerHeight + section.offsetHeight);
+      var offset = progress * 120 - 60;
+      bgEl.style.transform = 'translateY(' + offset.toFixed(1) + 'px)';
+    }
+    window.addEventListener('scroll', onScroll, { passive: true });
+    onScroll();
+  })();
 
   /* ============================================================
      NAV — scroll state + hamburger + active section
