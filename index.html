@@ -473,20 +473,16 @@
     .services-grid {
       display: grid;
       grid-template-columns: repeat(3, 1fr);
-      gap: 0;
-      border: 1.5px solid var(--border);
+      gap: 1rem;
     }
     .service-card {
       padding: 3rem 2.6rem;
-      border-right: 1.5px solid var(--border);
-      border-bottom: 1.5px solid var(--border);
+      border: 1.5px solid var(--border);
       border-radius: 10px;
       transition: background 0.3s ease;
       position: relative;
       overflow: hidden;
     }
-    .service-card:nth-child(3n) { border-right: none; }
-    .service-card:nth-child(n+5) { border-bottom: none; }
     .service-card.full-row {
       grid-column: 1 / -1;
       border-right: none;
