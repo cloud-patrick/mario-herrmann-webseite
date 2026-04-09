@@ -821,6 +821,18 @@
       height: auto;
       object-fit: contain;
     }
+    .about-verlegung {
+      width: 100%;
+      overflow: hidden;
+      border-radius: 2px;
+    }
+    .about-verlegung img {
+      width: 100%;
+      height: auto;
+      object-fit: cover;
+      filter: blur(1.2px);
+      display: block;
+    }
     .partner-strip {
       background: var(--bg-dark);
       padding: 1.5rem 2rem;
@@ -1505,6 +1517,9 @@
         <div class="about-media reveal" style="--d:.1s">
           <div class="about-mh-logo">
             <img src="MH Logo_.png" alt="Mario Herrmann – Parkett &amp; Bodenbeläge Logo">
+          </div>
+          <div class="about-verlegung">
+            <img src="Verlegung.png" alt="Parkettverlegung Mario Herrmann" loading="lazy">
           </div>
           <div class="partner-strip">
             <p class="partner-strip-label">Unsere Partner</p>
