@@ -729,13 +729,13 @@
     #ueber-uns {
       padding: var(--pad) 0;
       position: relative;
-      background: var(--bg-alt);
+      background: transparent;
       overflow: hidden;
     }
     #verlegung-bg {
-      position: absolute;
+      position: absolute !important;
       inset: -30%;
-      z-index: 0;
+      z-index: 0 !important;
       will-change: transform;
     }
     #verlegung-bg img {
@@ -743,10 +743,20 @@
       height: 100%;
       object-fit: cover;
       display: block;
+      filter: blur(8px);
+      opacity: 0.25;
     }
-    #ueber-uns > * {
-      position: relative;
+    #ueber-uns::before {
+      content: '';
+      position: absolute;
+      inset: 0;
+      background: rgba(240, 232, 220, 0.25);
       z-index: 1;
+      pointer-events: none;
+    }
+    #ueber-uns > .container {
+      position: relative;
+      z-index: 2;
     }
     .about-grid {
       display: grid;
@@ -1535,7 +1545,7 @@
         <!-- Media column -->
         <div class="about-media reveal" style="--d:.1s">
           <div class="about-mh-logo">
-            <img src="MH Logo_.png" alt="Mario Herrmann – Parkett &amp; Bodenbeläge Logo">
+            <img id="mh-logo" src="MH Logo_.png" alt="Mario Herrmann – Parkett &amp; Bodenbeläge Logo">
           </div>
           <div class="partner-strip">
             <p class="partner-strip-label">Unsere Partner</p>
@@ -1975,17 +1985,55 @@
      VERLEGUNG PARALLAX
   ============================================================ */
   (function() {
-    var bgEl = document.getElementById('verlegung-bg');
+    var bgEl   = document.getElementById('verlegung-bg');
+    var logoEl = document.getElementById('mh-logo');
     var section = document.getElementById('ueber-uns');
     if (!bgEl || !section) return;
-    function onScroll() {
-      var rect = section.getBoundingClientRect();
+
+    /* background */
+    var bgCurY = 0, bgTgtY = 0;
+    var bgCurX = 0, bgTgtX = 0;
+
+    /* logo */
+    var logoCurY = 0, logoTgtY = 0;
+
+    function calcTargets() {
+      var rect     = section.getBoundingClientRect();
       var progress = -rect.top / (window.innerHeight + section.offsetHeight);
-      var offset = progress * 120 - 60;
-      bgEl.style.transform = 'translateY(' + offset.toFixed(1) + 'px)';
+
+      bgTgtY   = (progress * 220) - 110;   /* Hintergrund: ±110 px */
+      logoTgtY = (progress * 60)  - 30;    /* Logo: ±30 px — gleiche Richtung, sanfter */
     }
-    window.addEventListener('scroll', onScroll, { passive: true });
-    onScroll();
+
+    function onMouseMove(e) {
+      var rect = section.getBoundingClientRect();
+      var relX = (e.clientX - rect.left) / rect.width  - 0.5;
+      var relY = (e.clientY - rect.top)  / rect.height - 0.5;
+      bgTgtX   = relX * 40;
+      bgTgtY  += relY * 20;
+    }
+
+    function loop() {
+      bgCurY   += (bgTgtY   - bgCurY)   * 0.06;
+      bgCurX   += (bgTgtX   - bgCurX)   * 0.06;
+      logoCurY += (logoTgtY - logoCurY) * 0.06;
+
+      bgEl.style.transform =
+        'translate(' + bgCurX.toFixed(2) + 'px, ' + bgCurY.toFixed(2) + 'px)';
+
+      if (logoEl) {
+        logoEl.style.transform = 'translateY(' + logoCurY.toFixed(2) + 'px)';
+      }
+
+      requestAnimationFrame(loop);
+    }
+
+    window.addEventListener('scroll', function() { calcTargets(); }, { passive: true });
+    section.addEventListener('mousemove', onMouseMove);
+    section.addEventListener('mouseleave', function() { bgTgtX = 0; });
+
+    calcTargets();
+    loop();
   })();
 
   /* ============================================================
@@ -2137,6 +2185,582 @@
 
 
 })();
+</script>
+
+<!-- ===============================================================
+     CHATBOT WIDGET
+================================================================ -->
+<style>
+  /* =========================================================
+     CHATBOT — Toggle Button
+  ========================================================= */
+  .chatbot-toggle {
+    position: fixed;
+    bottom: 28px;
+    right: 28px;
+    z-index: 950;
+    width: 62px;
+    height: 62px;
+    border-radius: 50%;
+    background: var(--wood-dark);
+    border: 2px solid var(--wood-light);
+    color: var(--wood-light);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 24px rgba(20,10,2,0.5);
+    transition: transform 0.3s var(--ease), box-shadow 0.3s var(--ease), background 0.3s var(--ease);
+    cursor: pointer;
+    padding: 0;
+  }
+  .chatbot-toggle:hover {
+    background: var(--wood-mid);
+    transform: scale(1.08);
+    box-shadow: 0 8px 32px rgba(20,10,2,0.65);
+  }
+  .chatbot-toggle svg {
+    width: 26px;
+    height: 26px;
+    position: absolute;
+    transition: transform 0.35s var(--ease), opacity 0.35s var(--ease);
+  }
+  .chatbot-toggle .cb-icon-close {
+    opacity: 0;
+    transform: scale(0.5) rotate(-90deg);
+  }
+  .chatbot-open .chatbot-toggle .cb-icon-chat  { opacity: 0; transform: scale(0.5) rotate(90deg); }
+  .chatbot-open .chatbot-toggle .cb-icon-close { opacity: 1; transform: scale(1) rotate(0deg); }
+
+  /* Pulse dot */
+  .chatbot-toggle::after {
+    content: '';
+    position: absolute;
+    top: 2px;
+    right: 2px;
+    width: 14px;
+    height: 14px;
+    background: var(--amber);
+    border-radius: 50%;
+    border: 2.5px solid var(--wood-dark);
+    animation: cb-pulse 2.2s ease-in-out infinite;
+  }
+  .chatbot-open .chatbot-toggle::after { display: none; }
+  @keyframes cb-pulse {
+    0%, 100% { transform: scale(1); opacity: 1; }
+    55%       { transform: scale(1.4); opacity: 0.65; }
+  }
+
+  /* =========================================================
+     CHATBOT — Window
+  ========================================================= */
+  .chatbot-window {
+    position: fixed;
+    bottom: 106px;
+    right: 28px;
+    z-index: 949;
+    width: min(390px, calc(100vw - 32px));
+    display: flex;
+    flex-direction: column;
+    background: var(--bg);
+    border-radius: 18px;
+    box-shadow: 0 20px 64px rgba(20,10,2,0.48), 0 0 0 1px rgba(196,154,90,0.22);
+    overflow: hidden;
+    transform: translateY(18px) scale(0.95);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.38s var(--ease), opacity 0.38s var(--ease);
+    transform-origin: bottom right;
+    max-height: calc(100vh - 130px);
+  }
+  .chatbot-open .chatbot-window {
+    transform: translateY(0) scale(1);
+    opacity: 1;
+    pointer-events: all;
+  }
+
+  /* Header */
+  .cb-header {
+    background: var(--bg-dark);
+    padding: 14px 18px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+    border-bottom: 1px solid rgba(196,154,90,0.14);
+  }
+  .cb-avatar {
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    background: var(--bg-dark-2);
+    border: 1.5px solid rgba(196,154,90,0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    color: var(--wood-light);
+  }
+  .cb-avatar svg { width: 20px; height: 20px; }
+  .cb-header-info { flex: 1; min-width: 0; }
+  .cb-header-name {
+    font-size: 0.92rem;
+    font-weight: 700;
+    color: var(--text-light);
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  .cb-header-status {
+    font-size: 0.7rem;
+    color: var(--text-light-45);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    margin-top: 2px;
+  }
+  .cb-header-status::before {
+    content: '';
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #5cb85c;
+    display: inline-block;
+    flex-shrink: 0;
+  }
+
+  /* Messages area */
+  .cb-messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 14px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    min-height: 200px;
+    max-height: 320px;
+    scroll-behavior: smooth;
+  }
+  .cb-messages::-webkit-scrollbar { width: 4px; }
+  .cb-messages::-webkit-scrollbar-track { background: transparent; }
+  .cb-messages::-webkit-scrollbar-thumb { background: var(--border); border-radius: 4px; }
+
+  /* Bubbles */
+  .cb-msg {
+    display: flex;
+    flex-direction: column;
+    max-width: 87%;
+    animation: cb-msg-in 0.22s var(--ease) both;
+  }
+  @keyframes cb-msg-in {
+    from { opacity: 0; transform: translateY(7px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  .cb-msg.bot  { align-self: flex-start; }
+  .cb-msg.user { align-self: flex-end; }
+  .cb-bubble {
+    padding: 10px 14px;
+    font-size: 0.875rem;
+    line-height: 1.58;
+    border-radius: 14px;
+    word-break: break-word;
+  }
+  .cb-msg.bot  .cb-bubble {
+    background: #fff;
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+    color: var(--text-dark);
+  }
+  .cb-msg.user .cb-bubble {
+    background: var(--wood-dark);
+    color: var(--text-light);
+    border-bottom-right-radius: 4px;
+  }
+
+  /* Typing dots */
+  .cb-typing {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    padding: 11px 14px;
+    background: #fff;
+    border: 1px solid var(--border);
+    border-radius: 14px;
+    border-bottom-left-radius: 4px;
+    width: fit-content;
+    align-self: flex-start;
+    animation: cb-msg-in 0.22s var(--ease) both;
+  }
+  .cb-typing span {
+    width: 6px;
+    height: 6px;
+    background: var(--wood-mid);
+    border-radius: 50%;
+    animation: cb-dot 1.35s ease-in-out infinite;
+  }
+  .cb-typing span:nth-child(2) { animation-delay: 0.2s; }
+  .cb-typing span:nth-child(3) { animation-delay: 0.4s; }
+  @keyframes cb-dot {
+    0%, 60%, 100% { transform: translateY(0); opacity: 0.45; }
+    30%            { transform: translateY(-5px); opacity: 1; }
+  }
+
+  /* FAQ chips */
+  .cb-faqs {
+    padding: 0 14px 12px;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px;
+    flex-shrink: 0;
+  }
+  .cb-faq-chip {
+    font-size: 0.75rem;
+    font-weight: 500;
+    padding: 5px 12px;
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    background: #fff;
+    color: var(--text-mid);
+    cursor: pointer;
+    transition: background 0.2s, color 0.2s, border-color 0.2s;
+    font-family: inherit;
+    line-height: 1.4;
+  }
+  .cb-faq-chip:hover {
+    background: var(--wood-light);
+    color: var(--bg-dark);
+    border-color: var(--wood-light);
+  }
+
+  /* Input area */
+  .cb-input-area {
+    border-top: 1px solid var(--border);
+    padding: 11px 14px;
+    display: flex;
+    gap: 8px;
+    align-items: flex-end;
+    flex-shrink: 0;
+    background: var(--bg);
+  }
+  .cb-input {
+    flex: 1;
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 9px 12px;
+    font-size: 0.875rem;
+    font-family: inherit;
+    color: var(--text-dark);
+    background: #fff;
+    resize: none;
+    min-height: 40px;
+    max-height: 96px;
+    line-height: 1.5;
+    outline: none;
+    transition: border-color 0.2s;
+  }
+  .cb-input:focus { border-color: var(--wood-light); }
+  .cb-input::placeholder { color: var(--text-muted); }
+  .cb-send {
+    width: 40px;
+    height: 40px;
+    border-radius: 10px;
+    background: var(--wood-dark);
+    color: var(--wood-light);
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    cursor: pointer;
+    transition: background 0.2s, transform 0.2s;
+  }
+  .cb-send:hover:not(:disabled) { background: var(--wood-mid); transform: scale(1.06); }
+  .cb-send:disabled { opacity: 0.45; cursor: not-allowed; }
+  .cb-send svg { width: 17px; height: 17px; }
+
+  /* Error / disclaimer */
+  .cb-error {
+    align-self: stretch;
+    background: #fff5f5;
+    border: 1px solid #fcc;
+    border-radius: 10px;
+    padding: 9px 13px;
+    font-size: 0.82rem;
+    color: #b00;
+    animation: cb-msg-in 0.22s var(--ease) both;
+  }
+  .cb-disclaimer {
+    text-align: center;
+    font-size: 0.66rem;
+    color: var(--text-muted);
+    padding: 5px 14px 9px;
+    flex-shrink: 0;
+    border-top: 1px solid var(--border);
+    line-height: 1.5;
+  }
+</style>
+
+<!-- Chatbot HTML -->
+<div id="chatbot-root">
+
+  <!-- Toggle button -->
+  <button class="chatbot-toggle" id="cb-toggle-btn" aria-label="Chat öffnen" aria-expanded="false">
+    <svg class="cb-icon-chat" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+    </svg>
+    <svg class="cb-icon-close" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round">
+      <line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/>
+    </svg>
+  </button>
+
+  <!-- Chat window -->
+  <div class="chatbot-window" id="cb-window" role="dialog" aria-label="Kundenberatung Chat" aria-hidden="true">
+
+    <!-- Header -->
+    <div class="cb-header">
+      <div class="cb-avatar">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+          <circle cx="12" cy="8" r="4"/><path d="M4 20c0-4 3.6-7 8-7s8 3 8 7"/>
+        </svg>
+      </div>
+      <div class="cb-header-info">
+        <div class="cb-header-name">Herrmann Beratung</div>
+        <div class="cb-header-status">Online · Immer für Sie da</div>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="cb-messages" id="cb-messages"></div>
+
+    <!-- FAQ chips -->
+    <div class="cb-faqs" id="cb-faqs">
+      <button class="cb-faq-chip" data-q="Welche Leistungen bieten Sie an?">Leistungen</button>
+      <button class="cb-faq-chip" data-q="Was kostet das Verlegen von Parkett?">Parkett-Kosten</button>
+      <button class="cb-faq-chip" data-q="Wie kann ich ein Angebot anfragen?">Angebot anfragen</button>
+      <button class="cb-faq-chip" data-q="In welchen Gebieten sind Sie tätig?">Einsatzgebiet</button>
+      <button class="cb-faq-chip" data-q="Welche Holzarten für Parkett empfehlen Sie?">Holzarten</button>
+    </div>
+
+    <!-- Input -->
+    <div class="cb-input-area">
+      <textarea class="cb-input" id="cb-input" placeholder="Ihre Frage…" rows="1" aria-label="Nachricht eingeben"></textarea>
+      <button class="cb-send" id="cb-send-btn" aria-label="Senden" disabled>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+          <line x1="22" y1="2" x2="11" y2="13"/>
+          <polygon points="22 2 15 22 11 13 2 9 22 2"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="cb-disclaimer">KI-Assistent · Für verbindliche Auskünfte bitte direkt Kontakt aufnehmen</div>
+  </div>
+</div>
+
+<script>
+(function () {
+  'use strict';
+
+  /* ================================================================
+     DEMO-MODUS: Antworten direkt im Browser, kein Server nötig
+  ================================================================ */
+
+  var FAQS = [
+    {
+      keys: ['leistung', 'angebot', 'service', 'was macht', 'was bieten', 'was können'],
+      answer: 'Wir bieten folgende Leistungen an:\n\n• Parkett verlegen & schleifen\n• Bodenbeläge aller Art (Vinyl, Laminat, Teppich)\n• Fliesen verlegen\n• Fenster & Türen einbauen\n• Malerarbeiten\n• Treppensanierung\n\nAlles aus einer Hand – als zertifizierter Meisterbetrieb.'
+    },
+    {
+      keys: ['kost', 'preis', 'was kostet', 'wie teuer', 'preise', 'kosten'],
+      answer: 'Die Verlegekosten für Parkett liegen je nach Holzart, Muster und Untergrund bei ca. 15–30 €/m² (Arbeitskosten). Materialkosten kommen je nach gewähltem Produkt hinzu.\n\nFür ein genaues Angebot kommen wir gerne kostenlos zu Ihnen vor Ort – sprechen Sie uns einfach an!'
+    },
+    {
+      keys: ['angebot anfrag', 'kontakt', 'termin', 'besichtigung', 'besuch', 'vor ort', 'anfragen'],
+      answer: 'Ein unverbindliches Angebot erhalten Sie ganz einfach:\n\n📞 +49 261 29179864 (Festnetz)\n📱 +49 171 4668105 (Mobil)\n✉️ Fa.MarioHerrmann@t-online.de\n\nWir kommen kostenlos zu Ihnen und erstellen ein individuelles Angebot direkt vor Ort.'
+    },
+    {
+      keys: ['gebiet', 'tätig', 'region', 'koblenz', 'wo', 'einzugsgebiet', 'umgebung', 'fahren'],
+      answer: 'Wir sind in Koblenz und der gesamten Rhein-Mosel-Region tätig – also auch in der näheren Umgebung von Koblenz.\n\nSprechen Sie uns an – wir klären gerne, ob wir Ihren Standort anfahren.'
+    },
+    {
+      keys: ['holz', 'holzart', 'eiche', 'buche', 'nussbaum', 'bambus', 'ahorn', 'art'],
+      answer: 'Wir verlegen alle gängigen Holzarten:\n\n🌳 Eiche – der Klassiker, sehr robust\n🌿 Buche – hell und freundlich\n🍂 Nussbaum – edel und warm\n🎋 Bambus – nachhaltig und modern\n🌲 Esche, Ahorn, Kirsche – u.v.m.\n\nWir beraten Sie gerne, welche Holzart am besten zu Ihrem Zuhause passt.'
+    },
+    {
+      keys: ['parkett', 'verlegen', 'schiff', 'stab', 'fischgrät', 'diele', 'schleifen', 'versiegeln'],
+      answer: 'Beim Parkett verlegen bieten wir alles:\n\n• Stabparkett, Schiffsboden, Fischgrätmuster, Dielen\n• Verlegearten: schwimmend, geklebt oder genagelt\n• Anschließend Schleifen & Versiegeln mit Öl, Wachs oder Lack\n\nFür ein kostenloses Vor-Ort-Angebot erreichen Sie uns unter +49 261 29179864.'
+    },
+    {
+      keys: ['fliese', 'fliesen', 'naturstein', 'mosaik', 'bad', 'küche'],
+      answer: 'Wir verlegen alle Arten von Fliesen:\n\n• Wand- und Bodenfliesen\n• Feinsteinzeug & Großformatplatten\n• Naturstein & Mosaikfliesen\n\nOb Bad, Küche, Flur oder Terrasse – wir beraten Sie gerne und erstellen ein unverbindliches Angebot.'
+    },
+    {
+      keys: ['treppe', 'treppen', 'treppensanierung', 'renovier'],
+      answer: 'Treppensanierungen gehören zu unseren Spezialgebieten – ob Holztreppe schleifen & ölen, neue Trittstufen aufbringen oder komplette Neugestaltung einer Betontreppe.\n\nRufen Sie uns an: +49 261 29179864 – wir schauen es uns vor Ort an!'
+    },
+    {
+      keys: ['fenster', 'tür', 'türen', 'einbau', 'austausch'],
+      answer: 'Wir übernehmen den fachgerechten Einbau von Fenstern und Türen – Innentüren, Haustüren sowie Fensteraustausch.\n\nKontaktieren Sie uns für ein kostenloses Angebot: +49 261 29179864.'
+    },
+    {
+      keys: ['maler', 'streichen', 'tapezieren', 'anstrich', 'wand', 'farbe'],
+      answer: 'Unsere Malerarbeiten umfassen Innenanstriche, Tapezierarbeiten sowie Fassadenanstriche.\n\nFür ein unverbindliches Angebot: +49 261 29179864 oder Fa.MarioHerrmann@t-online.de'
+    },
+    {
+      keys: ['meister', 'qualität', 'erfahrung', 'seit wann', 'wie lange'],
+      answer: 'Mario Herrmann ist staatlich geprüfter Meister – das garantiert Ihnen höchste handwerkliche Qualität und fachkundige Beratung.\n\nUnser Motto: „Traditionell und dennoch auf dem neuesten Stand — Qualitätsarbeiten aus Meisterhand."'
+    },
+    {
+      keys: ['öffnungszeit', 'wann', 'erreichbar', 'telefonisch'],
+      answer: 'Sie erreichen uns am besten direkt:\n\n📞 +49 261 29179864 (Festnetz)\n📱 +49 171 4668105 (Mobil)\n✉️ Fa.MarioHerrmann@t-online.de\n\nWir melden uns schnellstmöglich bei Ihnen!'
+    },
+    {
+      keys: ['adresse', 'anschrift', 'wo sind sie', 'standort', 'büro'],
+      answer: 'Sie finden uns unter:\n\nParkett & Bodenbeläge Mario Herrmann\nRüsternallee 27\n56075 Koblenz\n\n📞 +49 261 29179864\n✉️ Fa.MarioHerrmann@t-online.de'
+    },
+    {
+      keys: ['vinyl', 'laminat', 'teppich', 'cv', 'pvc', 'kork', 'klick'],
+      answer: 'Neben Parkett verlegen wir alle modernen Bodenbeläge:\n\n• Vinyl / LVT (auch als Klicksystem)\n• Laminat\n• Teppich & Teppichfliesen\n• CV-/PVC-Beläge\n• Korkböden\n\nWir beraten Sie gerne, welcher Belag am besten zu Ihren Anforderungen passt.'
+    }
+  ];
+
+  var FALLBACK = 'Danke für Ihre Frage! Für eine genaue Auskunft wenden Sie sich am besten direkt an uns:\n\n📞 +49 261 29179864\n📱 +49 171 4668105\n✉️ Fa.MarioHerrmann@t-online.de\n\nWir helfen Ihnen gerne weiter!';
+
+  function findAnswer(text) {
+    var q = text.toLowerCase();
+    for (var i = 0; i < FAQS.length; i++) {
+      var faq = FAQS[i];
+      for (var j = 0; j < faq.keys.length; j++) {
+        if (q.indexOf(faq.keys[j]) !== -1) return faq.answer;
+      }
+    }
+    return FALLBACK;
+  }
+
+  /* ================================================================
+     UI
+  ================================================================ */
+  var state = { isOpen: false, isLoading: false };
+
+  var root      = document.getElementById('chatbot-root');
+  var toggleBtn = document.getElementById('cb-toggle-btn');
+  var winEl     = document.getElementById('cb-window');
+  var msgsEl    = document.getElementById('cb-messages');
+  var inputEl   = document.getElementById('cb-input');
+  var sendBtn   = document.getElementById('cb-send-btn');
+  var faqsEl    = document.getElementById('cb-faqs');
+
+  function toggleChat() {
+    state.isOpen = !state.isOpen;
+    root.classList.toggle('chatbot-open', state.isOpen);
+    toggleBtn.setAttribute('aria-expanded', String(state.isOpen));
+    winEl.setAttribute('aria-hidden', String(!state.isOpen));
+    if (state.isOpen && msgsEl.children.length === 0) {
+      typewriterMsg('Hallo! Schön, dass Sie da sind.\nWie kann ich Ihnen helfen? Wählen Sie einfach eine der häufigen Fragen oder schreiben Sie mir direkt.');
+    }
+    if (state.isOpen) setTimeout(function () { inputEl.focus(); }, 380);
+  }
+
+  function addUserMsg(text) {
+    var wrap = document.createElement('div');
+    wrap.className = 'cb-msg user';
+    var bub = document.createElement('div');
+    bub.className = 'cb-bubble';
+    bub.textContent = text;
+    wrap.appendChild(bub);
+    msgsEl.appendChild(wrap);
+    scrollDown();
+  }
+
+  function showTyping() {
+    var el = document.createElement('div');
+    el.id = 'cb-typing';
+    el.className = 'cb-typing';
+    el.innerHTML = '<span></span><span></span><span></span>';
+    msgsEl.appendChild(el);
+    scrollDown();
+  }
+
+  function hideTyping() {
+    var el = document.getElementById('cb-typing');
+    if (el) el.remove();
+  }
+
+  function scrollDown() {
+    msgsEl.scrollTop = msgsEl.scrollHeight;
+  }
+
+  /* Typewriter effect — simulates a real AI typing the answer */
+  function typewriterMsg(text) {
+    var wrap = document.createElement('div');
+    wrap.className = 'cb-msg bot';
+    var bub = document.createElement('div');
+    bub.className = 'cb-bubble';
+    bub.style.whiteSpace = 'pre-wrap';
+    wrap.appendChild(bub);
+    msgsEl.appendChild(wrap);
+
+    var i = 0;
+    var speed = 18; // ms per character
+    function tick() {
+      if (i < text.length) {
+        bub.textContent += text[i];
+        i++;
+        scrollDown();
+        setTimeout(tick, speed);
+      } else {
+        state.isLoading = false;
+        sendBtn.disabled = inputEl.value.trim().length === 0;
+      }
+    }
+    tick();
+  }
+
+  function sendMessage(text) {
+    text = (text || '').trim();
+    if (!text || state.isLoading) return;
+
+    state.isLoading = true;
+    sendBtn.disabled = true;
+    faqsEl.style.display = 'none';
+
+    addUserMsg(text);
+    inputEl.value = '';
+    inputEl.style.height = 'auto';
+    showTyping();
+
+    /* Simulate thinking delay (0.6–1.1 s) then typewriter response */
+    var delay = 600 + Math.random() * 500;
+    setTimeout(function () {
+      hideTyping();
+      typewriterMsg(findAnswer(text));
+    }, delay);
+  }
+
+  /* ---------- events ---------- */
+  toggleBtn.addEventListener('click', toggleChat);
+
+  sendBtn.addEventListener('click', function () { sendMessage(inputEl.value); });
+
+  inputEl.addEventListener('keydown', function (e) {
+    if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(inputEl.value); }
+  });
+
+  inputEl.addEventListener('input', function () {
+    this.style.height = 'auto';
+    this.style.height = Math.min(this.scrollHeight, 96) + 'px';
+    sendBtn.disabled = this.value.trim().length === 0;
+  });
+
+  faqsEl.addEventListener('click', function (e) {
+    var chip = e.target.closest('.cb-faq-chip');
+    if (chip) sendMessage(chip.dataset.q);
+  });
+
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && state.isOpen) toggleChat();
+  });
+
+}());
 </script>
 
 </body>
